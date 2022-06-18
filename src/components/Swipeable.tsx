@@ -17,24 +17,23 @@ import {
 import {
   GestureEvent,
   HandlerStateChangeEvent,
-} from '../handlers/gestureHandlerCommon';
-import {
+// } from '../handlers/gestureHandlerCommon';
+// import {
   PanGestureHandler,
   PanGestureHandlerEventPayload,
   PanGestureHandlerProps,
-} from '../handlers/PanGestureHandler';
-import {
+// } from '../handlers/PanGestureHandler';
+// import {
   TapGestureHandler,
   TapGestureHandlerEventPayload,
-} from '../handlers/TapGestureHandler';
+} from 'react-native-gesture-handler';
+
+
 import { State } from '../State';
 
 const DRAG_TOSS = 0.05;
 
-type SwipeableExcludes = Exclude<
-  keyof PanGestureHandlerProps,
-  'onGestureEvent' | 'onHandlerStateChange'
->;
+type SwipeableExcludes = Exclude< keyof PanGestureHandlerProps, 'onGestureEvent' | 'onHandlerStateChange' >;
 
 export interface SwipeableProps
   extends Pick<PanGestureHandlerProps, SwipeableExcludes> {
@@ -68,6 +67,9 @@ export interface SwipeableProps
    */
   rightThreshold?: number;
 
+  leftStop?: number;
+  rightStop?: number;
+
   /**
    * Value indicating if the swipeable panel can be pulled further than the left
    * actions panel's width. It is set to true by default as long as the left
@@ -90,39 +92,31 @@ export interface SwipeableProps
   overshootFriction?: number;
 
   /**
-   * @deprecated Use `direction` argument of onSwipeableOpen()
-   *
    * Called when left action panel gets open.
    */
-  onSwipeableLeftOpen?: () => void;
+  onSwipeableLeftOpen?: (toValue) => void;
 
   /**
-   * @deprecated Use `direction` argument of onSwipeableOpen()
-   *
    * Called when right action panel gets open.
    */
-  onSwipeableRightOpen?: () => void;
+  onSwipeableRightOpen?: (toValue) => void;
 
   /**
    * Called when action panel gets open (either right or left).
    */
-  onSwipeableOpen?: (direction: 'left' | 'right') => void;
+  onSwipeableOpen?: (direction: 'left' | 'right', toValue) => void;
 
   /**
    * Called when action panel is closed.
    */
-  onSwipeableClose?: (direction: 'left' | 'right') => void;
+  onSwipeableClose?: () => void;
 
   /**
-   * @deprecated Use `direction` argument of onSwipeableWillOpen()
-   *
    * Called when left action panel starts animating on open.
    */
   onSwipeableLeftWillOpen?: () => void;
 
   /**
-   * @deprecated Use `direction` argument of onSwipeableWillOpen()
-   *
    * Called when right action panel starts animating on open.
    */
   onSwipeableRightWillOpen?: () => void;
@@ -130,12 +124,12 @@ export interface SwipeableProps
   /**
    * Called when action panel starts animating on open (either right or left).
    */
-  onSwipeableWillOpen?: (direction: 'left' | 'right') => void;
+  onSwipeableWillOpen?: () => void;
 
   /**
    * Called when action panel starts animating on close.
    */
-  onSwipeableWillClose?: (direction: 'left' | 'right') => void;
+  onSwipeableWillClose?: () => void;
 
   /**
    *
@@ -188,9 +182,10 @@ type SwipeableState = {
   leftWidth?: number;
   rightOffset?: number;
   rowWidth?: number;
+  lastPosition?: number;
 };
 
-export default class Swipeable extends Component<
+export  class DigiSwipeable extends Component<
   SwipeableProps,
   SwipeableState
 > {
@@ -210,6 +205,7 @@ export default class Swipeable extends Component<
       leftWidth: undefined,
       rightOffset: undefined,
       rowWidth: undefined,
+      lastPosition: undefined
     };
     this.updateAnimatedEvent(props, this.state);
 
@@ -325,6 +321,8 @@ export default class Swipeable extends Component<
       friction,
       leftThreshold = leftWidth / 2,
       rightThreshold = rightWidth / 2,
+      leftStop = leftWidth,
+      rightStop = rightWidth
     } = this.props;
 
     const startOffsetX = this.currentOffset() + dragX / friction!;
@@ -334,8 +332,15 @@ export default class Swipeable extends Component<
     if (rowState === 0) {
       if (translationX > leftThreshold) {
         toValue = leftWidth;
-      } else if (translationX < -rightThreshold) {
+      }
+      else if (translationX > leftStop) {
+        toValue = leftStop;
+      }
+      else if (translationX < -rightThreshold) {
         toValue = -rightWidth;
+      }
+      else if (translationX < -rightStop) {
+        toValue = -rightStop;
       }
     } else if (rowState === 1) {
       // swiped to left
@@ -377,27 +382,31 @@ export default class Swipeable extends Component<
       ...this.props.animationOptions,
     }).start(({ finished }) => {
       if (finished) {
-        if (toValue > 0) {
-          this.props.onSwipeableLeftOpen?.();
-          this.props.onSwipeableOpen?.('left');
-        } else if (toValue < 0) {
-          this.props.onSwipeableRightOpen?.();
-          this.props.onSwipeableOpen?.('right');
-        } else {
-          const closingDirection = fromValue > 0 ? 'left' : 'right';
-          this.props.onSwipeableClose?.(closingDirection);
+        if (toValue > 0 && this.props.onSwipeableLeftOpen) {
+          this.props.onSwipeableLeftOpen(toValue);
+        } else if (toValue < 0 && this.props.onSwipeableRightOpen) {
+          this.props.onSwipeableRightOpen(toValue);
         }
+
+        if (toValue === 0) {
+          this.props.onSwipeableClose?.();
+        } else {
+          this.props.onSwipeableOpen?.(toValue > 0 ? 'left' : 'right', toValue);
+        }
+
+        this.setState({ lastPosition: toValue })
       }
     });
-    if (toValue > 0) {
-      this.props.onSwipeableLeftWillOpen?.();
-      this.props.onSwipeableWillOpen?.('left');
-    } else if (toValue < 0) {
-      this.props.onSwipeableRightWillOpen?.();
-      this.props.onSwipeableWillOpen?.('right');
+    if (toValue > 0 && this.props.onSwipeableLeftWillOpen) {
+      this.props.onSwipeableLeftWillOpen();
+    } else if (toValue < 0 && this.props.onSwipeableRightWillOpen) {
+      this.props.onSwipeableRightWillOpen();
+    }
+
+    if (toValue === 0) {
+      this.props.onSwipeableWillClose?.();
     } else {
-      const closingDirection = fromValue > 0 ? 'left' : 'right';
-      this.props.onSwipeableWillClose?.(closingDirection);
+      this.props.onSwipeableWillOpen?.();
     }
   };
 
@@ -408,11 +417,12 @@ export default class Swipeable extends Component<
   private currentOffset = () => {
     const { leftWidth = 0, rowWidth = 0, rowState } = this.state;
     const { rightOffset = rowWidth } = this.state;
+    const { lastPosition } = this.state;
     const rightWidth = rowWidth - rightOffset;
     if (rowState === 1) {
-      return leftWidth;
+      return lastPosition !== undefined ? lastPosition : leftWidth;
     } else if (rowState === -1) {
-      return -rightWidth;
+      return lastPosition !== undefined ? lastPosition : -rightWidth;
     }
     return 0;
   };
@@ -421,16 +431,20 @@ export default class Swipeable extends Component<
     this.animateRow(this.currentOffset(), 0);
   };
 
-  openLeft = () => {
+  openLeft = (target = undefined) => {
     const { leftWidth = 0 } = this.state;
-    this.animateRow(this.currentOffset(), leftWidth);
+    this.animateRow(this.currentOffset(), target !== undefined ? target : leftWidth);
   };
 
-  openRight = () => {
+  openRight = (target = undefined) => {
     const { rowWidth = 0 } = this.state;
     const { rightOffset = rowWidth } = this.state;
     const rightWidth = rowWidth - rightOffset;
-    this.animateRow(this.currentOffset(), -rightWidth);
+    this.animateRow(this.currentOffset(), -(target !== undefined ? target : rightWidth));
+  };
+
+  getState = () => {
+    return this.state;
   };
 
   render() {

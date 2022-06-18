@@ -94,17 +94,17 @@ export interface SwipeableProps
   /**
    * Called when left action panel gets open.
    */
-  onSwipeableLeftOpen?: (toValue) => void;
+  onSwipeableLeftOpen?: (toValue?:  number) => void;
 
   /**
    * Called when right action panel gets open.
    */
-  onSwipeableRightOpen?: (toValue) => void;
+  onSwipeableRightOpen?: (toValue?:  number) => void;
 
   /**
    * Called when action panel gets open (either right or left).
    */
-  onSwipeableOpen?: (direction: 'left' | 'right', toValue) => void;
+  onSwipeableOpen?: (direction: 'left' | 'right', toValue?:  number) => void;
 
   /**
    * Called when action panel is closed.
@@ -185,7 +185,7 @@ type SwipeableState = {
   lastPosition?: number;
 };
 
-export  class DigiSwipeable extends Component<
+export default class Swipeable extends Component<
   SwipeableProps,
   SwipeableState
 > {

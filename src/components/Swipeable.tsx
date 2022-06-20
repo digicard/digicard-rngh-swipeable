@@ -29,7 +29,7 @@ import {
 } from 'react-native-gesture-handler';
 
 
-import { State } from '../State';
+import { State } from './State';
 
 const DRAG_TOSS = 0.05;
 
